@@ -69,45 +69,64 @@ class App {
             let dna = '';
             let cai = 0;
             let gc = 0;
-            let attempts = 0;
-            const maxAttempts = 3;
+            let bestConstruct = null;
+            let bestMfe = Infinity;
+            let finalCai = 0;
+            let finalGc = 0;
 
-            while (attempts < maxAttempts) {
-                console.log(`Optimization attempt ${attempts + 1}...`);
-                
-                // 1. Reverse Translate (with GC awareness)
-                this.updateStep(1, 'active');
-                dna = this.reverseTranslator.translate(protein, strategy, targetGC);
-                this.updateStep(1, 'completed');
+            const CANDIDATES_COUNT = CONFIG.optimization.candidatesCount;
+            console.log(`Starting Research-Grade optimization (Candidates: ${CANDIDATES_COUNT})...`);
 
-                // 2. GC Balance (refinement)
-                this.updateStep(2, 'active');
+            const candidates = [];
+            for (let c = 0; c < CANDIDATES_COUNT; c++) {
+                console.log(`Generating candidate ${c + 1}...`);
+                let dna = this.reverseTranslator.translate(protein, strategy, targetGC);
                 dna = this.gcBalancer.balance(dna, targetGC);
-                this.updateStep(2, 'completed');
-
-                // 3. Forbidden Motifs
-                this.updateStep(3, 'active');
                 dna = this.forbiddenScanner.fix(dna);
-                this.updateStep(3, 'completed');
-
-                // Final Audit for this attempt
-                const testConstruct = this.frameBuilder.build(dna, stopCodon);
-                cai = this.caiCalculator.calculate(testConstruct.cds);
                 
-                if (cai >= 0.7) {
-                    console.log(`Success: CAI ${cai} met threshold 0.7`);
-                    break;
+                const construct = this.frameBuilder.build(dna, stopCodon);
+                const cai = this.caiCalculator.calculate(construct.cds);
+                
+                // Only consider candidates meeting the Research-grade floor
+                if (cai >= CONFIG.optimization.caiFloor) {
+                    candidates.push({ construct, cai });
                 }
-                
-                console.warn(`Attempt ${attempts + 1} failed: CAI ${cai} < 0.7. Re-optimizing...`);
-                attempts++;
             }
 
-            // 4. Final Assembly & Audit
+            if (candidates.length === 0) {
+                throw new Error(`Failed to generate candidates meeting CAI ${CONFIG.optimization.caiFloor} threshold. Try a different strategy.`);
+            }
+
+            // 4. Structural Selection (Fold all and pick best)
             this.updateStep(4, 'active');
-            const construct = this.frameBuilder.build(dna, stopCodon);
-            gc = this.gcBalancer.calculateGC(construct.cds);
-            const cpg = this.cpgAudit.audit(construct.cds);
+            for (const cand of candidates) {
+                let mfe = 0;
+                try {
+                    const rnaSeq = cand.construct.cds.replace(/T/g, 'U');
+                    const resp = await fetch(CONFIG.paths.foldingApi, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sequence: rnaSeq })
+                    });
+                    if (resp.ok) {
+                        const fold = await resp.json();
+                        mfe = fold.mfe;
+                        cand.fold = fold;
+                    }
+                } catch (e) {
+                    console.warn("Structural selection fallback to heuristic...");
+                }
+
+                if (mfe < bestMfe) {
+                    bestMfe = mfe;
+                    bestConstruct = cand.construct;
+                    finalCai = cand.cai;
+                    bestFold = cand.fold;
+                }
+            }
+            
+            finalGc = this.gcBalancer.calculateGC(bestConstruct.cds);
+            const cpg = this.cpgAudit.audit(bestConstruct.cds);
             this.updateStep(4, 'completed');
 
             // Folding: call local Python/ViennaRNA folding service (if available)
@@ -130,19 +149,25 @@ class App {
 
             // 5. Verification
             this.updateStep(5, 'active');
-            const verification = this.verifier.verify(construct.fullSequence, protein);
+            const verification = this.verifier.verify(bestConstruct.fullSequence, protein);
+            const researchValidation = this.verifier.validateResearchTargets({
+                cai: finalCai,
+                gc: finalGc,
+                mfe: bestMfe
+            }, bestConstruct.cds.length);
             this.updateStep(5, 'completed');
 
             // Update Metrics
-            this.updateMetrics(cai, gc, cpg, verification, foldResult);
-            this.displaySequence(construct.fullSequence);
+            this.updateMetrics(finalCai, finalGc, cpg, verification, bestFold);
+            this.displaySequence(bestConstruct.fullSequence);
             
             this.currentData = {
                 protein,
                 strategy,
-                metrics: { cai, gc_percent: (gc * 100).toFixed(1), cpg },
-                construct,
-                verification
+                metrics: { cai: finalCai, gc_percent: (finalGc * 100).toFixed(1), cpg },
+                construct: bestConstruct,
+                verification,
+                researchValidation
             };
 
         } catch (error) {

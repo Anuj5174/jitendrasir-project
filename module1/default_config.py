@@ -52,5 +52,18 @@ DEFAULT_CONFIG = {
 
     "validation": {
         "min_length": 20
+    },
+
+    "biological_data": {
+        "hla_frequencies": {
+            "HLA-A*02:01": 0.45,
+            "HLA-A*01:01": 0.25,
+            "HLA-A*03:01": 0.20,
+            "HLA-B*07:02": 0.15,
+            "HLA-B*08:01": 0.12,
+            "HLA-C*07:01": 0.28,
+            "HLA-DRB1*01:01": 0.15,
+            "HLA-DRB1*15:01": 0.18
+        }
     }
 }

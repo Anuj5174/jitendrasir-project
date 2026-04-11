@@ -32,7 +32,8 @@ export class GCBalancer {
                         // Filter for synonymous codons that are high-quality (freq > 50% of max for that AA)
                         const allSynonymous = this.codonTable.getCodonsForAA(aa);
                         const maxFreq = allSynonymous[0].freq;
-                        const synonymous = allSynonymous.filter(c => c.freq >= maxFreq * 0.5);
+                        const minFreq = maxFreq * CONFIG.gc.minFreqPercentile;
+                        const synonymous = allSynonymous.filter(c => c.freq >= minFreq);
 
                         if (synonymous.length > 1) {
                             let bestCodon = codons[j];

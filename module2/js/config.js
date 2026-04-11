@@ -8,11 +8,23 @@ export const CONFIG = {
     },
     gc: {
         defaultTarget: 0.52,
-        defaultWindowSize: 50,
+        defaultWindowSize: 30, // nucleotides
         tolerance: 0.05,
-        maxIterations: 5
+        maxIterations: 10,
+        minFreqPercentile: 0.5 // only swap to codons with freq > 50% of max for that AA
     },
-    forbidden: {
+    optimization: {
+        candidatesCount: 3,
+        maxAttempts: 3,
+        caiFloor: 0.75
+    },
+    validation: {
+        caiThreshold: 0.75,
+        gcMin: 0.45,
+        gcMax: 0.60,
+        mfeStabilityThreshold: -0.22 // kcal/mol per nt
+    },
+    motifs: {
         maxIterations: 10,
         patterns: [
             { name: 'Polyadenylation signal (1)', regex: /AATAAA/gi },

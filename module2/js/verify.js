@@ -1,4 +1,4 @@
-// module2/js/verify.js
+import { CONFIG } from './config.js';
 
 export class Verifier {
     constructor(codonTable) {
@@ -52,5 +52,17 @@ export class Verifier {
             mismatches,
             lengthMatch: translated.length === expectedProtein.length
         };
+    }
+
+    validateResearchTargets(metrics, length) {
+        // Research-grade thresholds for elite vaccine constructs (pulled from config)
+        const targets = {
+            cai: metrics.cai >= CONFIG.validation.caiThreshold,
+            gc: metrics.gc >= CONFIG.validation.gcMin && metrics.gc <= CONFIG.validation.gcMax,
+            mfe_normalized: (metrics.mfe / length) <= CONFIG.validation.mfeStabilityThreshold
+        };
+        
+        const allPassed = Object.values(targets).every(v => v === true);
+        return { allPassed, targets };
     }
 }

@@ -68,8 +68,9 @@ def run_module1(seq, config=None):
     mhci_candidates = get_best_unique(mhci_scores)
     mhcii_candidates = get_best_unique(mhcii_scores)
     
+    bcell_score_val = config["scoring"].get("bcell_score", 20.0)
     bcell_candidates = sorted([
-        {"peptide": p, "type": "B-cell", "score": bcell_score} 
+        {"peptide": p, "type": "B-cell", "score": bcell_score_val} 
         for p in set(bcell_epitopes)
     ], key=lambda x: len(x["peptide"]), reverse=True)
 
@@ -146,7 +147,7 @@ if __name__ == "__main__":
 
     try:
         result = run_module1(seq)
-        print("\n=== FINAL ANTIGEN ===")
+        print("\n=== FINAL RESEARCH-GRADE ANTIGEN ===")
         print(result["antigen_sequence"])
     except Exception as e:
         print(f"Error occurred: {e}")
