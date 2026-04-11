@@ -1,0 +1,95 @@
+<!-- module2/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 2: mRNA Sequence Optimizer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sequence Generator</h1>
+            <p class="metric-label">Codon Optimization & Bio-Safety Pipeline</p>
+        </header>
+
+        <div class="glass-panel">
+            <div class="form-group">
+                <label for="proteinInput">Antigen Protein Sequence (Module 1 Output)</label>
+                <textarea id="proteinInput" rows="4" placeholder="Paste protein sequence here..."></textarea>
+            </div>
+
+            <div class="controls">
+                <div class="form-group">
+                    <label for="strategySelect">Optimization Strategy</label>
+                    <select id="strategySelect">
+                        <option value="most_frequent">Most Frequent Codon</option>
+                        <option value="weighted_random">Weighted Random</option>
+                        <option value="balanced">Balanced Frequency</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="targetGC">Target GC Content (%)</label>
+                    <input type="number" id="targetGC" value="52" min="30" max="70">
+                </div>
+                <div class="form-group">
+                    <label for="stopCodon">Stop Codon</label>
+                    <select id="stopCodon">
+                        <option value="TGA">TGA (Mammalian Op)</option>
+                        <option value="TAA">TAA</option>
+                        <option value="TAG">TAG</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="generateBtn">Optimize mRNA Sequence</button>
+        </div>
+
+        <div id="progressSection" class="glass-panel hidden">
+            <div class="stepper">
+                <div class="step" id="step1"><div class="step-icon">1</div><div class="metric-label">Translate</div></div>
+                <div class="step" id="step2"><div class="step-icon">2</div><div class="metric-label">GC Bal</div></div>
+                <div class="step" id="step3"><div class="step-icon">3</div><div class="metric-label">Motifs</div></div>
+                <div class="step" id="step4"><div class="step-icon">4</div><div class="metric-label">Audit</div></div>
+                <div class="step" id="step5"><div class="step-icon">5</div><div class="metric-label">Verify</div></div>
+            </div>
+
+            <div class="results-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="caiValue">0.00</div>
+                    <div class="metric-label">CAI Score</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="gcValue">0%</div>
+                    <div class="metric-label">GC Content</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="mfeValue">N/A</div>
+                    <div class="metric-label">ΔG (kcal/mol)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="cpgValue">0%</div>
+                    <div class="metric-label">CpG Density</div>
+                </div>
+                <div class="metric-card">
+                    <div id="verifyStatus" class="status-badge">PENDING</div>
+                    <div class="metric-label">Verification</div>
+                </div>
+            </div>
+
+            <div id="sequenceDisplay" class="sequence-display">
+                <!-- Nucleotides will be injected here -->
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button id="copyBtn" style="background: var(--card-bg); border: 1px solid var(--primary);">Copy Sequence</button>
+                <button id="exportBtn">Export JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

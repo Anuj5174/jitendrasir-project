@@ -14,15 +14,17 @@ DEFAULT_CONFIG = {
 
     "prediction": {
         "mhc1_length": 9,
-        "mhc1_method": "recommended",
-        "mhc2_method": "recommended",
-        "bcell_method": "Bepipred"
+        "mhc1_method": "netmhcpan",
+        "mhc2_method": "netmhciipan",
+        "bcell_method": "bepipred"
     },
 
     "scoring": {
         "allele_weight": 2,
         "bcell_score": 20,
-        "max_score_fallback": 10.0
+        "max_score_fallback": 10.0,
+        "population_coverage_bonus": 5.0,
+        "conservancy_bonus": 2.0
     },
 
     "fusion": {

@@ -8,6 +8,8 @@ from scoring import score_mhci, score_mhcii
 from fusion import fuse_epitopes
 from default_config import DEFAULT_CONFIG
 from filter import is_redundant
+from advanced_filters import run_toxinpred, predict_allergen, filter_candidates_by_safety
+from iedb_advanced import compute_population_coverage, compute_conservancy
 
 
 def select_diverse_top(candidates, count, already_selected_peptides, overlap_threshold):
@@ -31,25 +33,25 @@ def run_module1(seq, config=None):
     if config is None:
         config = DEFAULT_CONFIG
 
-    print("🔍 Validating sequence...")
+    print("[INFO] Validating sequence...")
     seq = validate_sequence(seq, config)
 
-    print("🌐 Fetching MHC-I...")
+    print("[API] Fetching MHC-I...")
     mhci_df = get_mhci(seq, config)
-    print(f"✔ MHC-I: {len(mhci_df)} hits")
+    print(f"[DONE] MHC-I: {len(mhci_df)} hits")
 
-    print("🌐 Fetching MHC-II...")
+    print("[API] Fetching MHC-II...")
     mhcii_df = get_mhcii(seq, config)
-    print(f"✔ MHC-II: {len(mhcii_df)} hits")
+    print(f"[DONE] MHC-II: {len(mhcii_df)} hits")
 
-    print("🌐 Fetching B-cell...")
+    print("[API] Fetching B-cell...")
     bcell_df = get_bcell(seq, config)
 
-    print("🧬 Extracting B-cell epitopes...")
+    print("[BIO] Extracting B-cell epitopes...")
     bcell_epitopes = extract_bcell_epitopes(bcell_df, config)
-    print(f"✔ B-cell: {len(bcell_epitopes)} epitopes")
+    print(f"[DONE] B-cell: {len(bcell_epitopes)} epitopes")
 
-    print("📈 Scoring...")
+    print("[SCORE] Scoring...")
     mhci_scores = score_mhci(mhci_df, config)
     mhcii_scores = score_mhcii(mhcii_df, config)
 
@@ -66,11 +68,40 @@ def run_module1(seq, config=None):
     mhci_candidates = get_best_unique(mhci_scores)
     mhcii_candidates = get_best_unique(mhcii_scores)
     
-    bcell_score = config["scoring"]["bcell_score"]
     bcell_candidates = sorted([
         {"peptide": p, "type": "B-cell", "score": bcell_score} 
         for p in set(bcell_epitopes)
     ], key=lambda x: len(x["peptide"]), reverse=True)
+
+    # --- ADVANCED FILTERING & BIOLOGICAL SCORING ---
+    print("[SAFETY] Running Safety Filters (Toxicity/Allergenicity)...")
+    all_raw_candidates = mhci_candidates + mhcii_candidates + bcell_candidates
+    peptides_to_test = list({c["peptide"] for c in all_raw_candidates})
+    
+    tox_map = run_toxinpred(peptides_to_test)
+    allergen_map = predict_allergen(peptides_to_test)
+    
+    # Filter candidates
+    mhci_candidates = filter_candidates_by_safety(mhci_candidates, tox_map, allergen_map)
+    mhcii_candidates = filter_candidates_by_safety(mhcii_candidates, tox_map, allergen_map)
+    bcell_candidates = filter_candidates_by_safety(bcell_candidates, tox_map, allergen_map)
+
+    print("[STATS] Computing Population Coverage & Conservancy...")
+    # Calculate scores for remaining candidates
+    coverage_map = compute_population_coverage([c["peptide"] for c in mhci_candidates + mhcii_candidates])
+    # For conservancy, we'd ideally have reference sequences; using provided sequence as a baseline
+    conservancy_map = compute_conservancy([c["peptide"] for c in all_raw_candidates], [seq])
+
+    # Inject scores back into candidate objects
+    pop_bonus = config["scoring"].get("population_coverage_bonus", 5.0)
+    cons_bonus = config["scoring"].get("conservancy_bonus", 2.0)
+    
+    for c in mhci_candidates + mhcii_candidates + bcell_candidates:
+        p = c["peptide"]
+        c["population_coverage"] = coverage_map.get(p, 0.0)
+        c["conservancy"] = conservancy_map.get(p, 0.0)
+        # Bonus ranking: boost score based on coverage and conservancy from config
+        c["score"] += (c.get("population_coverage", 0) * pop_bonus) + (c.get("conservancy", 0) * cons_bonus)
 
     # 2. Diversity-Aware Selection with Quotas
     selected_all = []
@@ -88,10 +119,10 @@ def run_module1(seq, config=None):
     bcell_selected = select_diverse_top(bcell_candidates, config["selection"]["counts"]["B-cell"], [s["peptide"] for s in selected_all], overlap_limit)
     selected_all.extend(bcell_selected)
 
-    print("🏆 Ranking and Filtering...")
+    print("[TOP] Ranking and Filtering...")
     print(f"   Selected (Diverse): {len(mhc1_selected)} MHC-I, {len(mhc2_selected)} MHC-II, {len(bcell_selected)} B-cell")
 
-    print("🔗 Building antigen...")
+    print("[LINK] Building antigen...")
     antigen = fuse_epitopes(selected_all, config)
 
     return {

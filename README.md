@@ -1,32 +1,93 @@
-# Epitope Vaccine Construction Pipeline
+# 🧬 Enterprise Vaccine Design & mRNA Optimization Pipeline
 
-An automated bioinformatics pipeline that transforms a viral or pathogenic protein sequence into a single, optimized multi-epitope vaccine construct ready for synthesis.
+An end-to-end, clinical-tier platform for the computational design of multi-epitope vaccines and highly stable mRNA constructs. This pipeline integrates real-world biological constraints, population-scale demographics, and unified structural thermodynamics.
 
-## 🎯 Objective
-This system intelligently queries immune databases (IEDB), identifies the most potent immunogenic regions (MHC-I, MHC-II, and B-cell), mathematically scores them for efficacy, and safely fuses them into a single, highly efficient artificial antigen.
+---
 
-## ⚙️ Core Operations (The Pipeline)
+## 🚀 Key Highlights
 
-1. **Intelligent Targeting**: Simultaneously interfaces with immune databases via the IEDB API to predict the strongest binding regions for **MHC-I** (CD8+ T-cells), **MHC-II** (CD4+ Helper T-cells), and **B-cells** (Antibodies).
-2. **Advanced Scoring Algorithm**: Evaluates candidate peptides using a biological formula (`-log(IC50) + Allele Coverage`) to prioritize regions that are not only potent but also effective across a broad human population. 
-3. **Diversity & Deduplication**: Employs a strict algorithmic filter to enforce structural diversity. Any candidate sharing a biological motif (6+ amino acid overlap) with an already-selected region is instantly rejected, ensuring the final vaccine spans distinct structural regions.
-4. **Precision Assembly**: Extracts exactly **7 MHC-I**, **5 MHC-II**, and **3 B-cell** epitopes, seamlessly merging their junction boundaries (`merge_junction`) with structured biochemical linkers (`AAY`, `GPGPG`, `KK`) to avoid biological bloat or stacking.
+- **Clinical-Tier Screening:** Fixed integration with **NetMHCpan**, **NetMHCIIpan**, and **BepiPred** via IEDB APIs.
+- **Unified Optimization:** GC-aware codon selection that ensures high expression without sacrificing **$\Delta G$ stability**.
+- **Therapeutic Safety Floor:** Automated enforcement of a **0.7 Codon Adaptation Index (CAI)** threshold.
+- **Population-Scale Analytics:** Integrated Global HLA Population Coverage and Conservancy metrics.
+- **Context-Aware CPB:** Professional-grade Codon Pair Bias optimization using a curated human weight matrix.
+- **7-Step Bio-Safety Pipeline:** Detection and removal of cryptic splice sites, IRES motifs, and GC-rich hairpins.
 
-## 🚀 Usage
+---
 
-```bash
-# Run the pipeline
-python main.py
+## 📂 Project Architecture
+
+```text
+.
+├── module1/                # Clinical Epitope Selection (Python)
+│   ├── main.py             # Global orchestrator with population scaling
+│   ├── default_config.py   # Centralized prediction & scoring weights
+│   ├── advanced_filters.py # Toxicity (ToxinPred3) & Allergenicity filters
+│   └── scoring.py          # Multi-parameter affinity scoring
+└── module2/                # mRNA Sequence Optimizer (JS/Python)
+    ├── index.html          # Therapeutic Design dashboard
+    ├── structure_api.py    # FastAPI backend for mRNA thermodynamics
+    ├── js/config.js        # Centralized web UI constants & data paths
+    └── js/                 # Unified GC-Codon optimization engine
 ```
 
-Provide the tool with a raw protein sequence when prompted. The script will perform prediction, filtering, scoring, and fusion, outputting the final engineered, multi-faceted antigen sequence.
+---
 
-## 🛠️ Configuration
-The entire pipeline is dynamically governed by `default_config.py`. Centralized parameters include:
-- **Prediction Methods & Alleles:** Choose tools like BepiPred, NetMHCpan, NetMHCIIpan.
-- **Scientific Thresholds:** Adjust `ic50`, percentile ranks, and the biological `overlap_limit`.
-- **Selection Quotas:** Define exact target counts for MHC-I, MHC-II, and B-cell epitopes.
-- **Linkers & Fallbacks:** Set biochemical linkers and algorithm scoring fallbacks.
+## ⚙️ Configuration & Environment
 
-## ✨ The Result
-A highly engineered, non-redundant, and structurally clean antigen sequence perfectly balanced for comprehensive immune stimulation—all driven by a centralized configuration file.
+The platform is designed to be fully parameter-driven without hardcoded values.
+
+### Module 1: Python Parameters (`module1/default_config.py`)
+| Key | Description | Default |
+| :--- | :--- | :--- |
+| `mhc1_method` | Prediction model for MHC-I | `netmhcpan` |
+| `mhc2_method` | Prediction model for MHC-II | `netmhciipan` |
+| `pop_coverage_bonus` | Weight boost for high-coverage epitopes | `5.0` |
+| `linkers` | Linker strings for fusion (MHC-I/II/B) | `AAY`, `GPGPG`, `KK` |
+
+### Module 2: Environment Variables
+The structural backend supports standard environment variables for deployment:
+- `STRUCTURE_HOST`: Interface to bind (default: `0.0.0.0`)
+- `STRUCTURE_PORT`: Port to listen (default: `8000`)
+
+---
+
+## 🔬 Module 1: Epitope Selection (Clinical Tier)
+Module 1 identifies and selects high-affinity epitopes while enforcing strict biological and demographic constraints.
+
+**Usage:**
+```bash
+python module1/main.py
+```
+*Input secondary protein sequences via CLI or pipe.*
+
+---
+
+## 💊 Module 2: mRNA Optimizer (Therapeutic Tier)
+Module 2 converts the antigen protein into a high-expression, stable mRNA sequence via a unified GC-Codon optimization strategy.
+
+### The Unified Strategy:
+1. **GC-Aware Translation:** Codons are selected based on $Score = Frequency \times CPB \times GC\_Bias$.
+2. **Safe GC Refinement:** Synonymous swaps are performed only if local windows deviate from 52%, provided CAI stays above 0.7.
+3. **Folding Thermodynamics:** Real-time calculation of $ \Delta G $ via the FastAPI backend.
+
+**Setup Structural Backend:**
+```bash
+# Requires Python 3.x and ViennaRNA (RNAfold) in system path
+python module2/structure_api.py
+```
+
+**Launch Dashboard:**
+Serve the root directory via any local web server (e.g., `python -m http.server 3000`) and open `http://localhost:3000/module2/`.
+
+---
+
+## 🛠 Technology Stack
+- **Backend:** Python 3.x, FastAPI, Pandas, Subprocess logic.
+- **Frontend:** Vanilla JavaScript (ES6+), Modern CSS3 (Glassmorphism).
+- **Bio-Integration:** IEDB APIs, ToxinPred3 interface, ViennaRNA (RNAfold) structural bridge.
+
+---
+
+## 📜 License
+*Enterprise Clinical Tier v3.0 - Optimized for Clinical Research and Vaccine Development.*
