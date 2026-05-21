@@ -27,18 +27,47 @@ class App {
         this.currentData = null;
 
         this.bindEvents();
+        this.loadModule1Output();
+    }
+
+    async loadModule1Output() {
+        // 1. Check URL parameters for instant, cache-free transfer
+        const urlParams = new URLSearchParams(window.location.search);
+        const seqFromUrl = urlParams.get('seq');
+        if (seqFromUrl) {
+            document.getElementById('proteinInput').value = seqFromUrl;
+            console.log("Successfully loaded Module 1 Output from URL!");
+
+            // Optional: Automatically trigger the generation
+            // document.getElementById('generateBtn').click();
+            return;
+        }
+
+        // 2. Fallback to file reading (with cache-buster)
+        try {
+            const resp = await fetch('data/module1_output.json?t=' + new Date().getTime());
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.antigen_sequence) {
+                    document.getElementById('proteinInput').value = data.antigen_sequence;
+                    console.log("Successfully loaded Module 1 Output from file!");
+                }
+            }
+        } catch (e) {
+            console.log("No previous Module 1 output found.");
+        }
     }
 
     async init() {
         if (this.initialized) return;
         await this.codonTable.init();
-        
+
         this.reverseTranslator = new ReverseTranslator(this.codonTable);
         this.gcBalancer = new GCBalancer(this.codonTable);
         this.forbiddenScanner = new ForbiddenScanner(this.codonTable);
         this.caiCalculator = new CAICalculator(this.codonTable);
         this.verifier = new Verifier(this.codonTable);
-        
+
         this.initialized = true;
     }
 
@@ -50,7 +79,7 @@ class App {
 
     async runPipeline() {
         await this.init();
-        
+
         let proteinRaw = document.getElementById('proteinInput').value.trim().toUpperCase();
         const protein = proteinRaw.replace(/[^A-Z]/g, ''); // Removes spaces and special characters
         if (!protein) {
@@ -71,6 +100,7 @@ class App {
             let gc = 0;
             let bestConstruct = null;
             let bestMfe = Infinity;
+            let bestFold = null;
             let finalCai = 0;
             let finalGc = 0;
 
@@ -80,13 +110,24 @@ class App {
             const candidates = [];
             for (let c = 0; c < CANDIDATES_COUNT; c++) {
                 console.log(`Generating candidate ${c + 1}...`);
+                // Step 1: Reverse Translation
+                this.updateStep(1, 'active');
                 let dna = this.reverseTranslator.translate(protein, strategy, targetGC);
+                this.updateStep(1, 'completed');
+
+                // Step 2: GC Balancing
+                this.updateStep(2, 'active');
                 dna = this.gcBalancer.balance(dna, targetGC);
+                this.updateStep(2, 'completed');
+
+                // Step 3: Forbidden Motif Removal
+                this.updateStep(3, 'active');
                 dna = this.forbiddenScanner.fix(dna);
-                
+                this.updateStep(3, 'completed');
+
                 const construct = this.frameBuilder.build(dna, stopCodon);
                 const cai = this.caiCalculator.calculate(construct.cds);
-                
+
                 // Only consider candidates meeting the Research-grade floor
                 if (cai >= CONFIG.optimization.caiFloor) {
                     candidates.push({ construct, cai });
@@ -124,28 +165,11 @@ class App {
                     bestFold = cand.fold;
                 }
             }
-            
+
             finalGc = this.gcBalancer.calculateGC(bestConstruct.cds);
             const cpg = this.cpgAudit.audit(bestConstruct.cds);
             this.updateStep(4, 'completed');
 
-            // Folding: call local Python/ViennaRNA folding service (if available)
-            let foldResult = null;
-            try {
-                const rnaSeq = construct.cds.replace(/T/g, 'U');
-                const resp = await fetch(CONFIG.paths.foldingApi, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sequence: rnaSeq })
-                });
-                if (resp.ok) {
-                    foldResult = await resp.json();
-                } else {
-                    console.warn('Folding service returned', resp.status);
-                }
-            } catch (e) {
-                console.warn('Folding service unreachable', e.message);
-            }
 
             // 5. Verification
             this.updateStep(5, 'active');
@@ -160,7 +184,7 @@ class App {
             // Update Metrics
             this.updateMetrics(finalCai, finalGc, cpg, verification, bestFold);
             this.displaySequence(bestConstruct.fullSequence);
-            
+
             this.currentData = {
                 protein,
                 strategy,
@@ -196,7 +220,7 @@ class App {
         // optional folding result
         const mfeEl = document.getElementById('mfeValue');
         mfeEl.innerText = (arguments[4] && arguments[4].mfe !== undefined) ? `${arguments[4].mfe} kcal/mol` : 'N/A';
-        
+
         const vBadge = document.getElementById('verifyStatus');
         if (verification.success) {
             vBadge.innerText = 'PASSED';
@@ -215,7 +239,7 @@ class App {
         container.style.wordBreak = 'break-all';
         container.style.color = '#e2e8f0';
         container.style.padding = '1rem';
-        
+
         console.log("--- MODULE 2 OUTPUT ---");
         console.log(`>optimized_cds\n${seq}`);
     }

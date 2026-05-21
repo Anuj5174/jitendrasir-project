@@ -80,11 +80,14 @@ def get_overlap_score(s1, s2, window=6):
     return lcs
 
 
-def is_redundant(new_peptide, existing_peptides, overlap_threshold):
+def is_redundant(new_peptide, existing_peptides, overlap_threshold, config=None):
     """
     Returns True if the new_peptide is redundant with any already selected peptide.
     Uses a fast sliding-window overlap check.
     """
+    kmer_k = config["thresholds"].get("kmer_size", 3) if config else 3
+    kmer_frac = config["thresholds"].get("kmer_overlap_fraction", 0.6) if config else 0.6
+
     for existing in existing_peptides:
         if new_peptide == existing or new_peptide in existing or existing in new_peptide:
             return True
@@ -95,8 +98,8 @@ def is_redundant(new_peptide, existing_peptides, overlap_threshold):
             return True
 
         # k-mer sliding-window overlap fraction (sensitive to motif sharing)
-        frac = kmer_overlap_fraction(new_peptide, existing, k=3)
-        if frac >= 0.6:
+        frac = kmer_overlap_fraction(new_peptide, existing, k=kmer_k)
+        if frac >= kmer_frac:
             return True
 
     return False

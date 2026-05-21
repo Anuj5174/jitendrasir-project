@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 export class ForbiddenScanner {
     constructor(codonTable) {
         this.codonTable = codonTable;
-        this.patterns = CONFIG.forbidden.patterns;
+        this.patterns = CONFIG.motifs.patterns;
     }
 
     scan(dna) {

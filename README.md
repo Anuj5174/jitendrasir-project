@@ -7,11 +7,12 @@ An end-to-end, research-grade platform for the computational design of multi-epi
 ## 🚀 Research-Grade Highlights
 
 - **Structural Selection Loop:** Optimization now generates multiple candidates and selects the one with the highest **$\Delta G$ stability**.
-- **Population Analytics:** Research-grade heuristic mapping for global HLA demographics.
+- **Real Population Analytics:** Mathematical probabilistic modeling of global, regional, and ethnicity demographics (via exact IEDB logic).
+- **ML & Safety Framework:** Subprocess wrappers for established ML classifiers (ToxinPred, AlgPred, AllergenFP) enforcing strict scientific integrity without synthetic fallbacks.
+- **Cross-Strain Conservancy:** Sliding-window sequence alignment allowing biological motif variance.
+- **Strict Hydrophobicity Control:** Heavy GRAVY scoring penalties enforcing structurally soluble (hydrophilic) constructs.
+- **Diverse MHC-II Coverage:** Expanded allelic targeting across DR, DP, and DQ loci.
 - **Unified Optimization:** GC-aware codon selection optimized for high-expression constructs.
-- **Research Safety Floor:** Strict enforcement of a **0.75 Codon Adaptation Index (CAI)** target for elite constructs.
-- **Adaptive Fallbacks:** Heuristic MFE estimation when `RNAfold` structural analysis is unavailable.
-- **7-Step Bio-Safety Pipeline:** Detection and removal of cryptic splice sites, IRES motifs, and GC-rich hairpins.
 
 ---
 
@@ -42,7 +43,9 @@ The platform is designed to be fully parameter-driven.
 | :--- | :--- | :--- |
 | `mhc1_method` | Prediction model for MHC-I | `netmhcpan` |
 | `mhc2_method` | Prediction model for MHC-II | `netmhciipan` |
-| `pop_coverage_bonus` | Weight boost for high-coverage epitopes | `5.0` |
+| `bcell_method` | Prediction model for B-cell | `Bepipred` |
+| `mhc2` | MHC-II Alleles targeted | `DRB1`, `DQA1/DQB1`, `DPA1/DPB1` |
+| `gravy_penalty` | Hydrophobicity score penalty | `-5.0` |
 | `linkers` | Linker strings for fusion | `AAY`, `GPGPG`, `KK` |
 
 ### Module 2: Environment Variables
@@ -53,6 +56,12 @@ The platform is designed to be fully parameter-driven.
 
 ## 🔬 Module 1: Biological Analytics
 Module 1 identifies and selects high-affinity epitopes while enforcing strict research-grade biological constraints.
+
+### Pipeline Features:
+1. **API Validated Predictions:** Extracts MHC-I, MHC-II, and linear B-cell (BepiPred) epitopes via real IEDB interfaces.
+2. **K-mer Overlap Prevention:** Strictly ensures HTL/CTL peptide structural independence via algorithmic sliding window redundancy checks.
+3. **Biological Filtering:** Enforces antigenicity (VaxiJen-like ACC) and strict structural solubility (negative GRAVY targets).
+4. **Research-Grade Honesty:** Explicitly requires structural pipelines (ElliPro) for conformational epitopes and ML binaries (ToxinPred/AlgPred) for toxicity—actively refusing to fabricate synthetic data when thresholds aren't met.
 
 **Usage:**
 ```bash

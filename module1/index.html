@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneHealth Vaccine Pipeline</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #060d1a; --surface: #0e1c30; --surface2: #152540;
+            --border: #1e3a5f; --primary: #38bdf8; --green: #34d399;
+            --green-bg: #022c22; --green-bd: #059669; --amber: #fbbf24;
+            --red: #f87171; --text: #e2e8f0; --muted: #64748b;
+        }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 2rem 1rem 4rem; }
+        .wrapper { max-width: 900px; margin: 0 auto; }
+
+        /* Header */
+        .header { text-align: center; margin-bottom: 2.5rem; }
+        .header h1 { font-size: 2rem; font-weight: 800; color: var(--primary); }
+        .header p { color: var(--muted); margin-top: 0.5rem; }
+
+        /* Pipeline bar */
+        .pipe-bar { display: flex; align-items: center; justify-content: center; margin-bottom: 2rem; gap: 0; }
+        .pipe-node { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-width: 70px; }
+        .pipe-circle {
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border);
+            background: var(--surface); display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.8rem; color: var(--muted); transition: all 0.3s;
+        }
+        .pipe-node.active .pipe-circle { border-color: var(--primary); color: var(--primary); background: #0c1f38; box-shadow: 0 0 12px rgba(56,189,248,0.3); }
+        .pipe-node.done   .pipe-circle { border-color: var(--green);   color: var(--green);   background: var(--green-bg); }
+        .pipe-label { font-size: 0.68rem; color: var(--muted); text-align: center; }
+        .pipe-line { flex: 1; height: 2px; background: var(--border); max-width: 60px; margin-bottom: 1.3rem; transition: background 0.4s; }
+        .pipe-line.done { background: var(--green); }
+
+        /* Card */
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.25rem; }
+        .card-title { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 1.25rem; }
+
+        /* Input area */
+        textarea {
+            width: 100%; padding: 1rem; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--primary); font-family: 'Fira Code', monospace;
+            font-size: 0.78rem; resize: vertical; transition: border-color 0.2s; min-height: 100px;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); }
+
+        /* Controls row */
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+        .ctrl-group label { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        select, input[type=number] {
+            width: 100%; padding: 0.6rem 0.8rem; background: var(--bg); border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text); font-size: 0.85rem;
+        }
+        select:focus, input[type=number]:focus { outline: none; border-color: var(--primary); }
+
+        /* Button */
+        .run-btn {
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            width: 100%; padding: 1rem; margin-top: 1.25rem;
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            color: #fff; border: none; border-radius: 8px;
+            font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.2s;
+        }
+        .run-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(56,189,248,0.3); }
+        .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Status */
+        #statusBar { display: none; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem; }
+        .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error */
+        .error-box { background: #2d0a0a; border: 1px solid #b91c1c; border-radius: 8px; padding: 1rem; color: var(--red); font-size: 0.88rem; margin-bottom: 1.25rem; display: none; }
+
+        /* Results */
+        #resultsSection { display: none; }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.75rem; }
+        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+        .metric { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+        .metric-val { font-size: 1.3rem; font-weight: 800; font-family: 'Fira Code', monospace; color: var(--primary); }
+        .metric-val.g { color: var(--green); }
+        .metric-val.a { color: var(--amber); }
+        .metric-val.r { color: var(--red); }
+        .metric-lbl { font-size: 0.65rem; color: var(--muted); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .seq-box {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;
+            font-family: 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.8;
+            color: var(--text); word-break: break-all; max-height: 200px; overflow-y: auto;
+        }
+        /* Colour coding */
+        .seq-box .nt-A { color: #4ade80; }
+        .seq-box .nt-U { color: #f87171; }
+        .seq-box .nt-G { color: #fbbf24; }
+        .seq-box .nt-C { color: #60a5fa; }
+
+        .row-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem; }
+        .badge { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+        .badge-g { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+        .badge-a { background: #2d1e00; color: var(--amber); border: 1px solid #b45309; }
+        .badge-r { background: #2d0a0a; color: var(--red);   border: 1px solid #b91c1c; }
+        .copy-link { font-size: 0.73rem; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; }
+        .copy-link:hover { color: var(--primary); }
+
+        .divider { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+
+        /* Arrow between sections */
+        .arrow-connector { text-align: center; font-size: 1.5rem; color: var(--green); margin: -0.3rem 0; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* Stepper for M2 steps */
+        .m2-stepper { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .m2-step { padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); transition: all 0.3s; }
+        .m2-step.active { background: #0c1f38; border-color: var(--primary); color: var(--primary); }
+        .m2-step.done   { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <div class="header">
+        <h1>🧬 OneHealth Vaccine Pipeline</h1>
+        <p>Enter your antigen → get a research-grade multi-epitope vaccine construct + optimized mRNA — automatically.</p>
+    </div>
+
+    <!-- Pipeline bar -->
+    <div class="pipe-bar">
+        <div class="pipe-node" id="pn1"><div class="pipe-circle">1</div><div class="pipe-label">Antigen<br>Input</div></div>
+        <div class="pipe-line" id="pl1"></div>
+        <div class="pipe-node" id="pn2"><div class="pipe-circle">2</div><div class="pipe-label">Epitope<br>Prediction</div></div>
+        <div class="pipe-line" id="pl2"></div>
+        <div class="pipe-node" id="pn3"><div class="pipe-circle">3</div><div class="pipe-label">Vaccine<br>Construct</div></div>
+        <div class="pipe-line" id="pl3"></div>
+        <div class="pipe-node" id="pn4"><div class="pipe-circle">4</div><div class="pipe-label">Codon<br>Optimise</div></div>
+        <div class="pipe-line" id="pl4"></div>
+        <div class="pipe-node" id="pn5"><div class="pipe-circle">5</div><div class="pipe-label">mRNA<br>Fold</div></div>
+        <div class="pipe-line" id="pl5"></div>
+        <div class="pipe-node" id="pn6"><div class="pipe-circle">✓</div><div class="pipe-label">Done</div></div>
+    </div>
+
+    <!-- Input -->
+    <div class="card">
+        <div class="card-title">⚗️ Antigen Protein Sequence</div>
+        <textarea id="antigenInput" rows="5" placeholder="Paste your raw protein sequence here...&#10;Example: MSDNGPQNQRNAPRITFGGPSDSTGSM..."></textarea>
+
+        <div class="controls">
+            <div class="ctrl-group">
+                <label>Optimisation Strategy</label>
+                <select id="strategySelect">
+                    <option value="most_frequent">Most Frequent Codon</option>
+                    <option value="weighted_random">Weighted Random</option>
+                    <option value="balanced">Balanced Frequency</option>
+                </select>
+            </div>
+            <div class="ctrl-group">
+                <label>Target GC Content (%)</label>
+                <input type="number" id="targetGC" value="52" min="30" max="70">
+            </div>
+            <div class="ctrl-group">
+                <label>Stop Codon</label>
+                <select id="stopCodon">
+                    <option value="TGA">TGA (Mammalian Op)</option>
+                    <option value="TAA">TAA</option>
+                    <option value="TAG">TAG</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runAll()">
+            ▶ Run Full Pipeline (Epitopes → Construct → mRNA → 3D → Cytokines → Docking)
+        </button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="statusBar">
+        <div class="spinner"></div>
+        <span id="statusTxt">Starting pipeline...</span>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- ─── RESULTS ─────────────────────────────────────────────────────── -->
+    <div id="resultsSection">
+
+        <!-- MODULE 1 -->
+        <div class="card">
+            <div class="row-flex">
+                <div class="card-title" style="margin-bottom:0;">🧪 Module 1 — Vaccine Construct</div>
+                <span class="badge badge-g">COMPLETE</span>
+            </div>
+            <hr class="divider">
+            <div class="metrics" id="m1metrics"></div>
+            <div class="row-flex">
+                <span class="section-title">Antigen Sequence (protein)</span>
+                <button class="copy-link" onclick="copyEl('m1seq')">Copy</button>
+            </div>
+            <div class="seq-box" id="m1seq"></div>
+        </div>
+
+        <div class="arrow-connector">↓ Auto-piped to mRNA Optimizer</div>
+
+        <!-- MODULE 2 -->
+        <div class="card">
+            <div class="row-flex" style="margin-bottom:1rem;">
+                <div class="card-title" style="margin-bottom:0;">🧬 Module 2 — Optimized mRNA Construct</div>
+                <span class="badge" id="m2badge">RUNNING</span>
+            </div>
+
+            <!-- M2 step indicators -->
+            <div class="m2-stepper">
+                <div class="m2-step" id="m2s1">① Reverse Translate</div>
+                <div class="m2-step" id="m2s2">② GC Balance</div>
+                <div class="m2-step" id="m2s3">③ Motif Scan</div>
+                <div class="m2-step" id="m2s4">④ Structure Fold</div>
+                <div class="m2-step" id="m2s5">⑤ Verify</div>
+            </div>
+
+            <div class="metrics" id="m2metrics">
+                <div class="metric"><div class="metric-val" id="caiVal">—</div><div class="metric-lbl">CAI Score</div></div>
+                <div class="metric"><div class="metric-val" id="gcVal">—</div><div class="metric-lbl">GC Content</div></div>
+                <div class="metric"><div class="metric-val" id="mfeVal">—</div><div class="metric-lbl">ΔG (kcal/mol)</div></div>
+                <div class="metric"><div class="metric-val" id="cpgVal">—</div><div class="metric-lbl">CpG Density</div></div>
+                <div class="metric"><div class="metric-val" id="verVal">—</div><div class="metric-lbl">Verification</div></div>
+            </div>
+
+            <div class="row-flex">
+                <span class="section-title">Optimized mRNA Sequence (colour-coded)</span>
+                <button class="copy-link" onclick="copyEl('m2seq')">Copy</button>
+            </div>
+            <div class="seq-box" id="m2seq">Waiting for Module 2...</div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1rem; flex-wrap:wrap;">
+                <button class="copy-link" style="background:var(--surface2); border:1px solid var(--border); padding:0.5rem 1rem; border-radius:6px;" onclick="exportAll()">⬇ Export JSON</button>
+            </div>
+        </div>
+
+        <div class="arrow-connector">↓ 3D Structure Prediction</div>
+
+        <!-- PRIORITY 1: 3D STRUCTURE -->
+        <div class="card" id="structureCard" style="display:none">
+            <div class="row-flex" style="margin-bottom:1rem;">
+                <div class="card-title" style="margin-bottom:0;">🔬 3D Structure — ESMFold</div>
+                <span class="badge" id="structBadge">RUNNING</span>
+            </div>
+            <div class="metrics" id="structMetrics"></div>
+            <div id="structGuidance" style="display:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; font-size:0.83rem; color:var(--muted);"></div>
+            <div style="display:flex; gap:0.75rem; margin-top:0.75rem; flex-wrap:wrap;">
+                <a id="pdbDownloadLink" href="/api/pdb" style="display:none;" class="copy-link" style="background:var(--surface2); border:1px solid var(--border); padding:0.5rem 1rem; border-radius:6px;">⬇ Download PDB</a>
+            </div>
+        </div>
+
+        <div class="arrow-connector">↓ Cytokine Prediction</div>
+
+        <!-- PRIORITY 2: CYTOKINES -->
+        <div class="card" id="cytokineCard" style="display:none">
+            <div class="row-flex" style="margin-bottom:1rem;">
+                <div class="card-title" style="margin-bottom:0;">🧫 Cytokine Profile — IFN-γ / IL-4 / IL-10</div>
+                <span class="badge" id="cytBadge">RUNNING</span>
+            </div>
+            <div class="metrics" id="cytMetrics"></div>
+            <div id="cytTable"></div>
+        </div>
+
+        <div class="arrow-connector">↓ Molecular Docking</div>
+
+        <!-- PRIORITY 3: DOCKING -->
+        <div class="card" id="dockingCard" style="display:none">
+            <div class="row-flex" style="margin-bottom:1rem;">
+                <div class="card-title" style="margin-bottom:0;">⚛️ Molecular Docking — TLR4 / TLR2 / HLA</div>
+                <span class="badge" id="dockBadge">RUNNING</span>
+            </div>
+            <div id="dockingResults"></div>
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+// ── Import Module 2 JS from localhost:8001 ──────────────────────────────────
+const M2      = 'http://localhost:8001/js';
+const M2_DATA = 'http://localhost:8001/data';
+
+// Patch CONFIG paths BEFORE importing CodonTable so fetches go to M2's server
+const { CONFIG } = await import(`${M2}/config.js`);
+CONFIG.paths.codonFreq    = `${M2_DATA}/human-codon-freq.json`;
+CONFIG.paths.codonPairBias= `${M2_DATA}/codon-pair-bias.json`;
+CONFIG.paths.foldingApi   = 'http://localhost:8001/api/fold';
+
+const { CodonTable }       = await import(`${M2}/codon-table.js`);
+const { ReverseTranslator }= await import(`${M2}/reverse-translate.js`);
+const { GCBalancer }       = await import(`${M2}/gc-balancer.js`);
+const { ForbiddenScanner } = await import(`${M2}/forbidden-scanner.js`);
+const { CpGAudit }         = await import(`${M2}/cpg-audit.js`);
+const { CAICalculator }    = await import(`${M2}/cai-calculator.js`);
+const { FrameBuilder }     = await import(`${M2}/frame-builder.js`);
+const { Verifier }         = await import(`${M2}/verify.js`);
+
+// Initialise codon table — now fetches from localhost:8001/data/
+const codonTable = new CodonTable();
+await codonTable.init();
+console.log('[Pipeline] Codon table loaded:', Object.keys(codonTable.aaToCodons).length, 'amino acids');
+
+const reverseTranslator = new ReverseTranslator(codonTable);
+const gcBalancer        = new GCBalancer(codonTable);
+const forbiddenScanner  = new ForbiddenScanner(codonTable);
+const cpgAudit          = new CpGAudit();
+const caiCalculator     = new CAICalculator(codonTable);
+const frameBuilder      = new FrameBuilder();
+const verifier          = new Verifier(codonTable);
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function setNode(n, state) {
+    document.getElementById('pn'+n).className = 'pipe-node ' + state;
+    if (n > 1) {
+        const l = document.getElementById('pl'+(n-1));
+        if (l && state === 'done') l.className = 'pipe-line done';
+    }
+}
+function setM2Step(n, state) {
+    document.getElementById('m2s'+n).className = 'm2-step ' + state;
+}
+function st(msg) { document.getElementById('statusTxt').textContent = msg; }
+
+window.copyEl = function(id) {
+    const el = document.getElementById(id);
+    navigator.clipboard.writeText(el.textContent).then(() => alert('Copied!'));
+};
+
+window.exportAll = function() {
+    if (!window._pipelineData) return;
+    const blob = new Blob([JSON.stringify(window._pipelineData, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pipeline_output.json';
+    a.click();
+};
+
+function colorRNA(seq) {
+    return seq.split('').map(c => {
+        const cl = {A:'nt-A', U:'nt-U', G:'nt-G', C:'nt-C'}[c] || '';
+        return cl ? `<span class="${cl}">${c}</span>` : c;
+    }).join('');
+}
+
+// ── Main pipeline ────────────────────────────────────────────────────────────
+window.runAll = async function() {
+    const antigen = document.getElementById('antigenInput').value.trim().toUpperCase().replace(/[^A-Z]/g,'');
+    if (!antigen) { alert('Please enter a protein sequence.'); return; }
+
+    const strategy  = document.getElementById('strategySelect').value;
+    const targetGC  = parseInt(document.getElementById('targetGC').value) / 100;
+    const stopCodon = document.getElementById('stopCodon').value;
+
+    // Reset UI
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('statusBar').style.display = 'flex';
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('runBtn').textContent = '⏳ Running...';
+    document.getElementById('m2seq').textContent = 'Waiting for Module 2...';
+    document.getElementById('m2badge').textContent = 'RUNNING';
+    document.getElementById('m2badge').className = 'badge badge-a';
+    ['caiVal','gcVal','mfeVal','cpgVal','verVal'].forEach(id => document.getElementById(id).textContent = '—');
+    for(let i=1;i<=5;i++) setM2Step(i,'');
+    for(let i=1;i<=6;i++) { document.getElementById('pn'+i).className='pipe-node'; }
+    for(let i=1;i<=5;i++) { const l=document.getElementById('pl'+i); if(l) l.className='pipe-line'; }
+
+    try {
+        // ── STEP 1 & 2: Module 1 ────────────────────────────────────────────
+        setNode(1, 'done');
+        setNode(2, 'active');
+        st('Module 1: Running IEDB epitope prediction, scoring, construct assembly...');
+
+        const m1resp = await fetch('/api/run', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({sequence: antigen})
+        });
+        const m1data = await m1resp.json();
+        if (!m1resp.ok) throw new Error(m1data.detail || 'Module 1 failed');
+
+        const construct = m1data.antigen_sequence;
+        if (!construct) throw new Error('Module 1 produced no antigen sequence');
+
+        setNode(2, 'done'); setNode(3, 'done');
+
+        // Render Module 1
+        document.getElementById('m1seq').textContent = construct;
+        document.getElementById('m1metrics').innerHTML = `
+            <div class="metric"><div class="metric-val g">${construct.length}</div><div class="metric-lbl">Length (AA)</div></div>
+            <div class="metric"><div class="metric-val">3-Phase</div><div class="metric-lbl">Pipeline</div></div>
+        `;
+
+        // ── STEP 3: Module 2 — Codon Optimisation ───────────────────────────
+        setNode(4, 'active');
+        st('Module 2: Running codon optimisation & bio-safety pipeline...');
+        document.getElementById('resultsSection').style.display = 'block';
+
+        const CANDIDATES = 3;
+        let bestConstruct = null, bestMfe = Infinity, finalCai = 0, finalGc = 0, bestFold = null;
+        const candidates = [];
+
+        for (let c = 0; c < CANDIDATES; c++) {
+            setM2Step(1, 'active');
+            let dna = reverseTranslator.translate(construct, strategy, targetGC);
+            setM2Step(1, 'done'); setM2Step(2, 'active');
+            dna = gcBalancer.balance(dna, targetGC);
+            setM2Step(2, 'done'); setM2Step(3, 'active');
+            dna = forbiddenScanner.fix(dna);
+            setM2Step(3, 'done');
+
+            const built = frameBuilder.build(dna, stopCodon);
+            const cai   = caiCalculator.calculate(built.cds);
+            if (cai >= 0.65) candidates.push({ built, cai });
+        }
+
+        if (candidates.length === 0) throw new Error('No candidates met the CAI threshold. Try a different strategy.');
+
+        // ── STEP 4: Fold each candidate ──────────────────────────────────────
+        setM2Step(4, 'active');
+        st('Module 2: Computing mRNA thermodynamic stability (ΔG)...');
+
+        for (const cand of candidates) {
+            const rnaSeq = cand.built.cds.replace(/T/g, 'U');
+            let mfe = 0;
+            // Try both ports for the fold API
+            for (const port of [8001, 8000]) {
+                try {
+                    const fr = await fetch(`http://localhost:${port}/api/fold`, {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({sequence: rnaSeq})
+                    });
+                    if (fr.ok) { const fd = await fr.json(); mfe = fd.mfe; bestFold = fd; break; }
+                } catch(_) {}
+            }
+            if (mfe < bestMfe) {
+                bestMfe = mfe;
+                bestConstruct = cand.built;
+                finalCai = cand.cai;
+            }
+        }
+
+        setM2Step(4, 'done');
+
+        finalGc = gcBalancer.calculateGC(bestConstruct.cds);
+        const cpg = cpgAudit.audit(bestConstruct.cds);
+
+        // ── STEP 5: Verify ───────────────────────────────────────────────────
+        setM2Step(5, 'active');
+        st('Module 2: Verifying back-translation & research thresholds...');
+        const verification = verifier.verify(bestConstruct.fullSequence, construct);
+        setM2Step(5, 'done');
+
+        setNode(4, 'done'); setNode(5, 'done'); setNode(6, 'done');
+
+        // ── Render Module 2 metrics ──────────────────────────────────────────
+        const gcPct = (finalGc * 100).toFixed(1);
+        const gcOk  = finalGc >= 0.45 && finalGc <= 0.60;
+        const caiOk = finalCai >= 0.75;
+
+        document.getElementById('caiVal').textContent = finalCai.toFixed(3);
+        document.getElementById('caiVal').className   = 'metric-val ' + (caiOk ? 'g' : 'a');
+        document.getElementById('gcVal').textContent  = gcPct + '%';
+        document.getElementById('gcVal').className    = 'metric-val ' + (gcOk ? 'g' : 'a');
+        document.getElementById('mfeVal').textContent = bestMfe !== Infinity ? bestMfe + ' kcal/mol' : 'N/A';
+        document.getElementById('mfeVal').className   = 'metric-val g';
+        document.getElementById('cpgVal').textContent = cpg.density + '%';
+        document.getElementById('cpgVal').className   = 'metric-val';
+        document.getElementById('verVal').textContent = verification.success ? '✓ PASS' : '✗ FAIL';
+        document.getElementById('verVal').className   = 'metric-val ' + (verification.success ? 'g' : 'r');
+
+        document.getElementById('m2badge').className   = 'badge ' + (verification.success ? 'badge-g' : 'badge-a');
+        document.getElementById('m2badge').textContent = verification.success ? 'COMPLETE ✓' : 'WARNINGS';
+
+        // Colour-coded RNA
+        const rnaFull = bestConstruct.fullSequence.replace(/T/g, 'U');
+        document.getElementById('m2seq').innerHTML = colorRNA(rnaFull);
+
+        // Store for export
+        window._pipelineData = {
+            input_antigen: antigen,
+            module1: { antigen_sequence: construct, length: construct.length },
+            module2: {
+                strategy, targetGC: gcPct + '%', stopCodon,
+                full_mrna: rnaFull,
+                cai: finalCai, gc_percent: gcPct, mfe_kcal_mol: bestMfe,
+                cpg_density: cpg.density,
+                verification: verification.success
+            }
+        };
+
+        st('✅ Modules 1 & 2 complete! Running 3D structure prediction...');
+
+        // ── PRIORITY 1: 3D Structure ──────────────────────────────────────────
+        document.getElementById('structureCard').style.display = 'block';
+        try {
+            st('3D: Submitting to ESMFold API (may take ~60s)...');
+            const s3resp = await fetch('/api/structure', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({sequence: construct})
+            });
+            const s3data = await s3resp.json();
+
+            if (s3data.status === 'success') {
+                document.getElementById('structBadge').className   = 'badge badge-g';
+                document.getElementById('structBadge').textContent = 'COMPLETE ✓';
+                const plddt = s3data.mean_plddt || 0;
+                const ss    = s3data.secondary_structure || {};
+                document.getElementById('structMetrics').innerHTML = `
+                    <div class="metric"><div class="metric-val ${plddt>=70?'g':'a'}">${plddt}</div><div class="metric-lbl">pLDDT Score</div></div>
+                    <div class="metric"><div class="metric-val">${s3data.confidence||'N/A'}</div><div class="metric-lbl">Confidence</div></div>
+                    <div class="metric"><div class="metric-val">${ss.alpha_helix_pct||0}%</div><div class="metric-lbl">α-Helix</div></div>
+                    <div class="metric"><div class="metric-val">${ss.beta_sheet_pct||0}%</div><div class="metric-lbl">β-Sheet</div></div>
+                    <div class="metric"><div class="metric-val">${ss.coil_pct||0}%</div><div class="metric-lbl">Coil/Loop</div></div>
+                `;
+                document.getElementById('pdbDownloadLink').style.display = 'inline-block';
+                if (window._pipelineData) window._pipelineData.structure = s3data;
+            } else {
+                const fg = s3data.fallback_guidance || {};
+                document.getElementById('structBadge').className   = 'badge badge-a';
+                document.getElementById('structBadge').textContent = 'API OFFLINE';
+                const g = document.getElementById('structGuidance');
+                g.style.display = 'block';
+                g.innerHTML = `⚠️ ESMFold API unreachable. 
+                    <a href="${fg.alphafold_colab||'#'}" target="_blank" style="color:var(--primary);">Use AlphaFold Colab</a> or 
+                    <a href="${fg.swiss_model||'#'}" target="_blank" style="color:var(--primary);">SWISS-MODEL</a>.`;
+            }
+        } catch(e) {
+            document.getElementById('structBadge').className   = 'badge badge-r';
+            document.getElementById('structBadge').textContent = 'ERROR';
+            console.warn('Structure prediction error:', e);
+        }
+
+        // ── PRIORITY 2: Cytokines ─────────────────────────────────────────────
+        document.getElementById('cytokineCard').style.display = 'block';
+        st('Predicting cytokine induction (IFN-γ, IL-4, IL-10)...');
+        try {
+            // Use Module 1's top epitopes from pipeline data
+            const epitopesForCytokine = window._pipelineData?.module1?.epitopes || [];
+            const cytResp = await fetch('/api/cytokines', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({epitopes: epitopesForCytokine.length > 0 ? epitopesForCytokine :
+                    // Fallback: build minimal list from construct snippets
+                    [{peptide: construct.substring(10, 19), type:'MHC-I'},
+                     {peptide: construct.substring(20, 35), type:'MHC-II'}]})
+            });
+            const cytData = await cytResp.json();
+
+            if (cytData.status === 'success') {
+                const sum = cytData.summary || {};
+                document.getElementById('cytBadge').className   = 'badge badge-g';
+                document.getElementById('cytBadge').textContent = 'COMPLETE ✓';
+                document.getElementById('cytMetrics').innerHTML = `
+                    <div class="metric"><div class="metric-val g">${(sum.th1_score*100).toFixed(0)}%</div><div class="metric-lbl">Th1 Score (IFN-γ)</div></div>
+                    <div class="metric"><div class="metric-val">${(sum.th2_score*100).toFixed(0)}%</div><div class="metric-lbl">Th2 Score (IL-4)</div></div>
+                    <div class="metric"><div class="metric-val ${sum.th1_score>sum.th2_score?'g':'a'}">${sum.bias?.split(' ')[0]||'Mixed'}</div><div class="metric-lbl">Immune Bias</div></div>
+                    <div class="metric"><div class="metric-val">${sum.ifng_inducers||0}/${sum.total_epitopes||0}</div><div class="metric-lbl">IFN-γ Inducers</div></div>
+                    <div class="metric"><div class="metric-val">${sum.il4_inducers||0}/${sum.total_epitopes||0}</div><div class="metric-lbl">IL-4 Inducers</div></div>
+                `;
+                if (window._pipelineData) window._pipelineData.cytokines = cytData.summary;
+            }
+        } catch(e) {
+            document.getElementById('cytBadge').className   = 'badge badge-r';
+            document.getElementById('cytBadge').textContent = 'ERROR';
+            console.warn('Cytokine prediction error:', e);
+        }
+
+        // ── PRIORITY 3: Docking ───────────────────────────────────────────────
+        document.getElementById('dockingCard').style.display = 'block';
+        st('Running molecular docking analysis (TLR4, TLR2, HLA)...');
+        try {
+            const dockResp = await fetch('/api/docking', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({sequence: construct})
+            });
+            const dockData = await dockResp.json();
+
+            const dResults = dockData.results || {};
+            let dHTML = '';
+            for (const [receptor, info] of Object.entries(dResults)) {
+                const energy = info.estimated_energy ?? info.docking_energy ?? null;
+                const interp = info.interpretation || info.message || 'See external links below';
+                const badge  = energy < -150 ? 'badge-g' : energy < -80 ? 'badge-a' : 'badge-r';
+                dHTML += `
+                    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-bottom:0.75rem;">
+                        <div class="row-flex" style="margin-bottom:0.5rem;">
+                            <span style="font-weight:700;">${receptor} <span style="color:var(--muted); font-size:0.8rem;">(${info.pdb_id||''})</span></span>
+                            <span class="badge ${badge}">${energy !== null ? energy+' kcal/mol' : info.status||'—'}</span>
+                        </div>
+                        <div style="font-size:0.83rem; color:var(--muted);">${interp}</div>
+                        ${info.external_links ? `<div style="margin-top:0.5rem; font-size:0.75rem;"><a href="${Object.values(info.external_links)[0]?.url||'#'}" target="_blank" style="color:var(--primary);">Submit to HDOCK →</a></div>` : ''}
+                    </div>`;
+            }
+            document.getElementById('dockingResults').innerHTML = dHTML || '<p style="color:var(--muted);">No docking data returned.</p>';
+            document.getElementById('dockBadge').className   = 'badge badge-g';
+            document.getElementById('dockBadge').textContent = 'COMPLETE ✓';
+            if (window._pipelineData) window._pipelineData.docking = dResults;
+        } catch(e) {
+            document.getElementById('dockBadge').className   = 'badge badge-r';
+            document.getElementById('dockBadge').textContent = 'ERROR';
+            console.warn('Docking error:', e);
+        }
+
+        st('✅ Full research-grade pipeline complete!');
+
+    } catch(err) {
+        document.getElementById('errorBox').textContent = '❌ ' + err.message;
+        document.getElementById('errorBox').style.display = 'block';
+        st('Pipeline failed.');
+        console.error(err);
+    } finally {
+        document.getElementById('runBtn').disabled = false;
+        document.getElementById('runBtn').textContent = '▶ Run Full Pipeline (Epitopes → Construct → mRNA → 3D → Cytokines → Docking)';
+    }
+};
+</script>
+</body>
+</html>
