@@ -52,6 +52,15 @@ def predict_structure(sequence: str, output_dir: str = "output") -> dict:
             # Secondary structure summary (count H=helix, E=sheet, C=coil from DSSP-like REMARK)
             sec_struct = _parse_secondary_structure(pdb_content, len(sequence))
 
+            # Run Ramachandran validation
+            ramachandran = None
+            try:
+                from ramachandran import generate_ramachandran_plot
+                rama_path = os.path.join(output_dir, "ramachandran.png")
+                ramachandran = generate_ramachandran_plot(pdb_path, rama_path)
+            except Exception as e:
+                print(f"[3D] Ramachandran plot failed: {e}")
+
             print(f"[3D]  ESMFold complete. Mean pLDDT: {mean_plddt} → {confidence}")
 
             return {
@@ -62,6 +71,7 @@ def predict_structure(sequence: str, output_dir: str = "output") -> dict:
                 "plddt_scores":  plddt_scores,
                 "confidence":    confidence,
                 "secondary_structure": sec_struct,
+                "ramachandran":  ramachandran,
                 "length":        len(sequence),
                 "status":        "success"
             }

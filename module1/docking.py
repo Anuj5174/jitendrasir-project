@@ -38,49 +38,46 @@ PATCHDOCK = "https://bioinfo3d.cs.tau.ac.il/PatchDock/php.php"
 def run_docking_analysis(vaccine_pdb_path: str, output_dir: str = "output") -> dict:
     """
     Attempt to dock the vaccine PDB against all standard receptors.
-    Returns docking scores, binding energies, and external submission links.
+    Even when no PDB is available, returns external submission links for all receptors.
     """
     os.makedirs(output_dir, exist_ok=True)
     results = {}
-
-    if not vaccine_pdb_path or not os.path.exists(vaccine_pdb_path):
-        return {
-            "status": "no_pdb",
-            "message": "3D structure required for docking. Run structure prediction first.",
-            "results": {}
-        }
+    pdb_available = vaccine_pdb_path and os.path.exists(vaccine_pdb_path)
 
     print("[DOCK] Starting molecular docking analysis...")
 
     for receptor_key, receptor_info in RECEPTORS.items():
         print(f"[DOCK] Processing {receptor_key} ({receptor_info['pdb_id']})...")
 
-        # 1. Download receptor PDB
+        # Always build external links
         receptor_pdb = _fetch_receptor_pdb(receptor_info["pdb_id"], output_dir)
-        if not receptor_pdb:
+        ext_links = _build_external_links(vaccine_pdb_path or "", receptor_pdb or "", receptor_key)
+
+        if not pdb_available:
             results[receptor_key] = {
-                "status": "receptor_fetch_failed",
-                "pdb_id": receptor_info["pdb_id"]
+                "status":         "awaiting_structure",
+                "pdb_id":         receptor_info["pdb_id"],
+                "name":           receptor_info["name"],
+                "estimated_energy": None,
+                "interpretation": "Run 3D structure prediction first to enable automated docking.",
+                "external_links":  ext_links
             }
             continue
 
-        # 2. Try HDOCK programmatic submission
-        docking_result = _try_hdock(vaccine_pdb_path, receptor_pdb, receptor_key)
+        # Try HDOCK programmatic submission
+        docking_result = _try_hdock(vaccine_pdb_path, receptor_pdb, receptor_key) if receptor_pdb else {"status": "hdock_unavailable"}
 
-        if docking_result["status"] == "success":
-            results[receptor_key] = {**docking_result, **receptor_info}
+        if docking_result["status"] == "submitted":
+            results[receptor_key] = {**docking_result, **receptor_info, "external_links": ext_links}
         else:
-            # 3. Fallback: energy estimation + external links
-            energy_estimate = _estimate_interaction_energy(vaccine_pdb_path, receptor_pdb)
+            energy_estimate = _estimate_interaction_energy(vaccine_pdb_path, receptor_pdb) if receptor_pdb else None
             results[receptor_key] = {
-                "status":          "estimated",
-                "pdb_id":          receptor_info["pdb_id"],
-                "name":            receptor_info["name"],
+                "status":           "estimated",
+                "pdb_id":           receptor_info["pdb_id"],
+                "name":             receptor_info["name"],
                 "estimated_energy": energy_estimate,
-                "interpretation":  _interpret_energy(energy_estimate),
-                "external_links":  _build_external_links(
-                    vaccine_pdb_path, receptor_pdb, receptor_key
-                )
+                "interpretation":   _interpret_energy(energy_estimate) if energy_estimate else "N/A",
+                "external_links":   ext_links
             }
 
     return {"status": "complete", "results": results}

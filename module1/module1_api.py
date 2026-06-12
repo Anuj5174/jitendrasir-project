@@ -14,6 +14,7 @@ from main          import run_module1
 from structure_3d  import predict_structure
 from cytokine      import predict_cytokines, summarise_cytokines
 from docking       import run_docking_analysis
+from expression_vector import design_expression_vector
 
 app = FastAPI()
 
@@ -63,20 +64,32 @@ def run_full_pipeline(body: PipelineRequest):
     rna_seq = antigen.replace("T", "U")  # DNA → RNA
     mod2_result = {"mfe": None, "method": "not_available", "structure": None}
 
-    # Try module2 structure API (port 8001 or 8000)
-    for port in [8001, 8000]:
-        try:
-            resp = _requests.post(
-                f"http://localhost:{port}/api/fold",
-                json={"sequence": rna_seq},
-                timeout=30
-            )
-            if resp.status_code == 200:
-                mod2_result = resp.json()
-                mod2_result["port_used"] = port
-                break
-        except Exception:
-            continue
+    # Try module2 structure API directly or via HTTP
+    try:
+        import sys, os
+        # Attempt direct import if running unified
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "module2"))
+        from structure_api import fold_sequence
+        from pydantic import BaseModel
+        class Req(BaseModel): sequence: str
+        res = fold_sequence(Req(sequence=rna_seq))
+        mod2_result = res if isinstance(res, dict) else res.dict()
+        mod2_result["port_used"] = "internal"
+    except Exception as ex:
+        print("Internal fold failed, trying HTTP:", ex)
+        for port in [8001, 8000, os.environ.get("PORT", 8080)]:
+            try:
+                resp = _requests.post(
+                    f"http://localhost:{port}/api/fold",
+                    json={"sequence": rna_seq},
+                    timeout=30
+                )
+                if resp.status_code == 200:
+                    mod2_result = resp.json()
+                    mod2_result["port_used"] = port
+                    break
+            except Exception:
+                continue
 
     return {
         "status": "success",
@@ -144,9 +157,27 @@ def get_docking(body: PipelineRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/api/vector")
+def get_expression_vector(body: PipelineRequest):
+    """§2.33-2.34: Expression vector design + in silico cloning."""
+    seq = body.sequence.strip().upper()
+    if not seq:
+        raise HTTPException(status_code=400, detail="Empty sequence.")
+    try:
+        result = design_expression_vector(seq)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Use /tmp for serverless environments like Vercel
+if os.environ.get("VERCEL"):
+    OUTPUT_DIR = "/tmp/output"
+else:
+    OUTPUT_DIR = os.path.join(MODULE_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+app.mount("/output", StaticFiles(directory=OUTPUT_DIR), name="output")
 
 @app.get("/")
 def serve_index():
