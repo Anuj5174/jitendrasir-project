@@ -1,0 +1,32 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Generated output (downloaded PDBs, plots, reports)
+module1/output/
+module2/data/module1_output.json
+
+# Runtime reports
+immune_simulation_report.json
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
