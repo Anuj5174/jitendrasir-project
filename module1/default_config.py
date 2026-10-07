@@ -13,14 +13,26 @@ DEFAULT_CONFIG = {
     "target_organism": "virus",
 
     # ── HLA alleles ───────────────────────────────────────────────────────────
+    # Expanded panel for >90% global population coverage.
+    # MHC-I supertypes cover ~97% of world population (Sette & Sidney, 1999).
+    # MHC-II panel covers major DR/DQ/DP loci.
     "alleles": {
         "mhc1": [
+            # HLA-A supertypes (covers ~95% global population)
             "HLA-A*02:01", "HLA-A*01:01", "HLA-A*03:01",
-            "HLA-B*07:02", "HLA-B*08:01",
+            "HLA-A*24:02", "HLA-A*26:01", "HLA-A*11:01",
+            "HLA-A*68:01",
+            # HLA-B supertypes (adds ~15% unique coverage)
+            "HLA-B*07:02", "HLA-B*08:01", "HLA-B*15:01",
+            "HLA-B*27:05", "HLA-B*35:01", "HLA-B*40:01",
+            "HLA-B*44:02", "HLA-B*51:01", "HLA-B*53:01",
+            "HLA-B*58:01",
         ],
         "mhc2": [
-            "HLA-DRB1*01:01", "HLA-DRB1*04:01", "HLA-DRB1*07:01", 
-            "HLA-DRB1*15:01", "HLA-DQA1*05:01/DQB1*02:01", "HLA-DPA1*01:03/DPB1*04:01",
+            "HLA-DRB1*01:01", "HLA-DRB1*03:01", "HLA-DRB1*04:01",
+            "HLA-DRB1*07:01", "HLA-DRB1*08:01", "HLA-DRB1*11:01",
+            "HLA-DRB1*13:01", "HLA-DRB1*15:01",
+            "HLA-DQA1*05:01/DQB1*02:01", "HLA-DPA1*01:03/DPB1*04:01",
         ],
     },
 
@@ -65,8 +77,57 @@ DEFAULT_CONFIG = {
         "population_coverage_bonus":  5.0,  # score bonus per unit of world coverage
         "conservancy_bonus":          2.0,  # score bonus per unit of conservancy
         "human_homology_penalty":   -50.0,  # score penalty for human-similar peptides
-        "gravy_penalty_threshold":    0.0,  # apply penalty if GRAVY exceeds 0 (aim for negative)
-        "gravy_penalty":             -5.0,  # strong score deduction for hydrophobicity
+    },
+
+    # ── CD8+/MHC-I Multi-Criteria Selection Weights ──────────────────────────
+    # Each criterion is scored 0-1 then multiplied by its weight.
+    # Final rank = Σ(weight_i × normalised_score_i)
+    "ctl_selection": {
+        "weights": {
+            "binding_strength":     0.15,  # Reduced to give antigenicity priority
+            "antigenicity":         0.30,  # DOUBLED: High priority for antigenicity
+            "allergenicity":        0.10,
+            "toxicity":             0.10,
+            "immunogenicity":       0.15,  # Reduced slightly
+            "tc50":                 0.10,
+            "multi_hla_binding":    0.10,  # Reduced slightly
+        },
+        # Minimum alleles a CTL epitope must bind to be considered
+        "min_allele_count":         2,
+        # Minimum combined population coverage for the selected CTL set
+        "min_population_coverage":  0.90,
+        # TC50 thresholds (nM)
+        "tc50_strong":             50.0,
+        "tc50_moderate":          200.0,
+        "tc50_weak":              500.0,
+    },
+
+    # ── CD4+/MHC-II Multi-Criteria Selection Weights ─────────────────────────
+    # 10 criteria: same 7 as CTL + IFN-γ, IL-4, IL-10 cytokine induction
+    "htl_selection": {
+        "weights": {
+            "binding_strength":     0.15,
+            "antigenicity":         0.10,
+            "allergenicity":        0.08,
+            "toxicity":             0.08,
+            "immunogenicity":       0.12,
+            "tc50":                 0.07,
+            "multi_hla_binding":    0.10,
+            "ifn_gamma":            0.12,  # IFN-γ inducer → Th1 cellular immunity
+            "il4":                  0.10,  # IL-4 inducer → Th2 humoral immunity
+            "il10":                 0.08,  # IL-10 → immunomodulation
+        },
+        "min_allele_count":         2,
+    },
+
+    # ── B-cell Multi-Criteria Selection Weights ──────────────────────────────
+    # 3 criteria: Antigenicity, Allergenicity, Toxicity
+    "bcell_selection": {
+        "weights": {
+            "antigenicity":         0.50,
+            "allergenicity":        0.25,
+            "toxicity":             0.25,
+        },
     },
 
     # ── Antigenicity (VaxiJen-like ACC) ──────────────────────────────────────
@@ -104,12 +165,8 @@ DEFAULT_CONFIG = {
 
     # ── Safety filters ────────────────────────────────────────────────────────
     "safety": {
-        # GRAVY filter — peptides above this hydrophobicity are removed
-        "gravy_threshold": 1.5,
-
         # Allergenicity confidence thresholds
         "allergen_confidence_cutoff":  0.65,  # flag as allergen if confidence >= this
-        "allergen_gravy_threshold":    3.0,   # extreme hydrophobicity flag
         "allergen_pi_threshold":      10.5,   # basic pI IgE cross-reactivity flag
         "allergen_proline_fraction":   0.25,  # proline-rich repeat threshold
         "allergen_proline_min_len":    12,    # only apply proline check above this length
@@ -149,7 +206,8 @@ DEFAULT_CONFIG = {
             "MHC-II_min": 4,
             "B-cell": 3,
         },
-        "max_peptides_for_coverage": 20, # SPEED OPTIMIZATION: only call coverage API for top N
+        "max_peptides_for_coverage": 30, # compute coverage for top N candidates
+        "combined_population_coverage": 0.97, # target combined MHC-I + MHC-II coverage
     },
 
     # ── Immune simulation heuristics ──────────────────────────────────────────
@@ -207,20 +265,41 @@ DEFAULT_CONFIG = {
     # ── Biological data ───────────────────────────────────────────────────────
     "biological_data": {
         "hla_frequencies": {
-            "HLA-A*02:01":    0.45,
-            "HLA-A*01:01":    0.25,
-            "HLA-A*03:01":    0.20,
-            "HLA-B*07:02":    0.15,
-            "HLA-B*08:01":    0.12,
+            # HLA-A allele frequencies (Allele Frequency Net Database)
+            "HLA-A*02:01":    0.2482,  # most common worldwide
+            "HLA-A*01:01":    0.1230,
+            "HLA-A*03:01":    0.1066,
+            "HLA-A*24:02":    0.1630,  # dominant in Asian/Oceanian populations
+            "HLA-A*26:01":    0.0528,
+            "HLA-A*11:01":    0.1290,  # high in East/Southeast Asian
+            "HLA-A*68:01":    0.0432,
+            # HLA-B allele frequencies
+            "HLA-B*07:02":    0.1100,
+            "HLA-B*08:01":    0.0850,
+            "HLA-B*15:01":    0.0650,
+            "HLA-B*27:05":    0.0380,
+            "HLA-B*35:01":    0.0920,
+            "HLA-B*40:01":    0.0680,
+            "HLA-B*44:02":    0.0750,
+            "HLA-B*51:01":    0.0580,
+            "HLA-B*53:01":    0.0450,
+            "HLA-B*58:01":    0.0380,
+            # HLA-C
             "HLA-C*07:01":    0.28,
-            "HLA-DRB1*01:01": 0.15,
-            "HLA-DRB1*15:01": 0.18,
-            "HLA-DRB1*04:01": 0.14,
-            "HLA-DRB1*07:01": 0.12,
+            # HLA-DRB1
+            "HLA-DRB1*01:01": 0.0800,
+            "HLA-DRB1*03:01": 0.1050,
+            "HLA-DRB1*04:01": 0.0820,
+            "HLA-DRB1*07:01": 0.1150,
+            "HLA-DRB1*08:01": 0.0480,
+            "HLA-DRB1*11:01": 0.0920,
+            "HLA-DRB1*13:01": 0.0780,
+            "HLA-DRB1*15:01": 0.1200,
+            # HLA-DQ/DP
             "HLA-DQA1*05:01/DQB1*02:01": 0.11,
             "HLA-DPA1*01:03/DPB1*04:01": 0.13,
         },
-        "default_allele_frequency": 0.05, # Fallback frequency if allele is missing
+        "default_allele_frequency": 0.03, # Fallback frequency if allele is missing
         # Kyte-Doolittle hydropathy scale — universal biological constant,
         # stored here for single-point reference rather than scattered copies
         "kyte_doolittle": {

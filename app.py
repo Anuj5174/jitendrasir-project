@@ -1,8 +1,17 @@
 import sys
 import os
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+
 
 # Add module directories to sys.path so imports work correctly
 MODULE1_DIR = os.path.join(os.path.dirname(__file__), "module1")

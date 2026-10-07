@@ -173,10 +173,11 @@ def _estimate_interaction_energy(ligand_pdb: str, receptor_pdb: str) -> float:
 
 
 def _interpret_energy(energy: float) -> str:
-    if energy < -200:   return "Strong binding predicted (< -200 kcal/mol) ✓"
-    if energy < -100:   return "Moderate binding predicted (-100 to -200 kcal/mol) ~"
-    if energy < -50:    return "Weak binding predicted (-50 to -100 kcal/mol) ⚠"
-    return "Poor binding predicted (> -50 kcal/mol) ✗"
+    if energy < -200:   return "Strong binding predicted (< -200 kcal/mol) [PASS]"
+    if energy < -100:   return "Moderate binding predicted (-100 to -200 kcal/mol) [MODERATE]"
+    if energy < -50:    return "Weak binding predicted (-50 to -100 kcal/mol) [WEAK]"
+    return "Poor binding predicted (> -50 kcal/mol) [POOR]"
+
 
 
 # ── External links ────────────────────────────────────────────────────────────

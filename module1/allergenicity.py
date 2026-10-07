@@ -54,10 +54,7 @@ def _get_kd(config):
     )
 
 
-def compute_gravy(peptide: str, config: dict) -> float:
-    kd = _get_kd(config)
-    scores = [kd.get(aa, 0.0) for aa in peptide.upper()]
-    return sum(scores) / len(scores) if scores else 0.0
+
 
 
 def compute_instability_index(peptide: str) -> float:
@@ -151,7 +148,6 @@ def predict_allergen(peptides: List[str], config: dict = None) -> Dict[str, dict
 
     sf = config.get("safety", DEFAULT_CONFIG["safety"])
     confidence_cutoff = sf.get("allergen_confidence_cutoff",   0.65)
-    gravy_threshold   = sf.get("allergen_gravy_threshold",     3.0)
     pi_threshold      = sf.get("allergen_pi_threshold",        10.5)
     stab_len_min      = sf.get("allergen_stability_len_min",   15)
     stab_threshold    = sf.get("allergen_stability_threshold",  5.0)
@@ -170,11 +166,9 @@ def predict_allergen(peptides: List[str], config: dict = None) -> Dict[str, dict
         cys_flag   = check_cysteine_pattern(seq)
         pro_flag   = check_proline_repeat(seq, config)
         rep_flag   = check_repetitive_kmers(seq)
-        gravy      = compute_gravy(seq, config)
         pi         = compute_isoelectric_point(seq)
         instability= compute_instability_index(seq)
 
-        gravy_risk = gravy > gravy_threshold
         pi_risk    = pi > pi_threshold
         stab_risk  = (instability < stab_threshold) and (len(seq) > stab_len_min)
 
@@ -203,10 +197,6 @@ def predict_allergen(peptides: List[str], config: dict = None) -> Dict[str, dict
             confidence = max(confidence, 0.65)
             reasons.append("Repetitive k-mer content")
 
-        if gravy_risk:
-            confidence = max(confidence, 0.60)
-            reasons.append(f"High GRAVY={gravy:.2f} (>{gravy_threshold})")
-
         if pi_risk:
             confidence = max(confidence, 0.55)
             reasons.append(f"Basic pI={pi} (>{pi_threshold})")
@@ -222,10 +212,9 @@ def predict_allergen(peptides: List[str], config: dict = None) -> Dict[str, dict
             "details": {
                 "motif_match": motif_r, "who_fao_8mer": eightmer_r,
                 "cysteine_scaffold": cys_flag, "proline_repeat": pro_flag,
-                "repetitive_kmers": rep_flag, "gravy": round(gravy, 3),
+                "repetitive_kmers": rep_flag,
                 "isoelectric_point": pi, "instability_index": round(instability, 2),
-                "flags": {"high_hydrophobicity": gravy_risk,
-                          "basic_pi": pi_risk, "gi_stable": stab_risk},
+                "flags": {"basic_pi": pi_risk, "gi_stable": stab_risk},
             },
         }
 

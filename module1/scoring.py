@@ -78,6 +78,41 @@ def _compute_peptide_score(group, score_col, config):
     return 0.0
 
 
+def _extract_binding_details(group, score_col):
+    """
+    Extract detailed per-allele binding data for a peptide.
+    Returns: best_ic50, allele_list, allele_count, per_allele_scores
+    """
+    alleles = sorted(group["allele"].unique().tolist())
+    allele_count = len(alleles)
+
+    per_allele = {}
+    for allele in alleles:
+        allele_rows = group[group["allele"] == allele]
+        if score_col == "ic50":
+            best_val = float(allele_rows[score_col].min())
+        elif score_col in ("percentile_rank", "rank"):
+            best_val = float(allele_rows[score_col].min())
+        elif score_col == "score":
+            best_val = float(allele_rows[score_col].min())
+        else:
+            best_val = 0.0
+        per_allele[allele] = round(best_val, 2)
+
+    # Overall best IC50
+    if score_col == "ic50":
+        best_ic50 = float(group[score_col].min())
+    else:
+        best_ic50 = 0.0
+
+    return {
+        "best_ic50": round(best_ic50, 2),
+        "alleles": alleles,
+        "allele_count": allele_count,
+        "per_allele": per_allele,
+    }
+
+
 def score_mhci(df, config):
     if df.empty:
         return []
@@ -87,7 +122,16 @@ def score_mhci(df, config):
     results = []
     for peptide, group in df.groupby("peptide"):
         score = _compute_peptide_score(group, score_col, config)
-        results.append({"peptide": peptide, "type": "MHC-I", "score": score})
+        binding = _extract_binding_details(group, score_col)
+        results.append({
+            "peptide": peptide,
+            "type": "MHC-I",
+            "score": score,
+            "best_ic50": binding["best_ic50"],
+            "alleles_bound": binding["alleles"],
+            "allele_count": binding["allele_count"],
+            "per_allele_binding": binding["per_allele"],
+        })
     return results
 
 
@@ -100,5 +144,14 @@ def score_mhcii(df, config):
     results = []
     for peptide, group in df.groupby("peptide"):
         score = _compute_peptide_score(group, score_col, config)
-        results.append({"peptide": peptide, "type": "MHC-II", "score": score})
+        binding = _extract_binding_details(group, score_col)
+        results.append({
+            "peptide": peptide,
+            "type": "MHC-II",
+            "score": score,
+            "best_ic50": binding["best_ic50"],
+            "alleles_bound": binding["alleles"],
+            "allele_count": binding["allele_count"],
+            "per_allele_binding": binding["per_allele"],
+        })
     return results
